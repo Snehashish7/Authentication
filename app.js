@@ -1,10 +1,14 @@
+/*What is MD5 in nodejs?
+ md5 Hashing algorithm in node.js. MD5 stands for message digest 5 is a widely used hash function which produces
+ 128-bit hashes. We are generating a simple hash using md5 hashing algorithm of node.js*/
+
 require('dotenv').config()
 const express = require('express');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const encrypt = require("mongoose-encryption")
-const app = express();
+const md5 = require('md5'); //note this
 
+const app = express();
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
@@ -21,7 +25,6 @@ async function main() {
   });
 
   const secrets = process.env.SECRETS;
-  userSchema.plugin(encrypt, { secret: secrets, encryptedFields: ['password'] }); //encrypt only the password field of userSchema
 
   const User = mongoose.model('User', userSchema);
 
@@ -37,9 +40,9 @@ async function main() {
     try {
       const newUser = new User({
         email: req.body.username,
-        password: req.body.password
+        password: md5(req.body.password)
       });
-      const result = await newUser.save();  //when save() is called then the password is encrypted
+      const result = await newUser.save();  //when save() is called then the password is hashed
       if (result) {
         res.render('secrets');
       } else {
@@ -57,7 +60,7 @@ async function main() {
 
   app.post("/login", async (req, res) => {
     const username = req.body.username;
-    const password = req.body.password;
+    const password = md5(req.body.password);
 
     try {
       const foundName = await User.findOne({ email: username }) //when find() is called then password is decrypted
