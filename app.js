@@ -1,12 +1,9 @@
-/*What is MD5 in nodejs?
- md5 Hashing algorithm in node.js. MD5 stands for message digest 5 is a widely used hash function which produces
- 128-bit hashes. We are generating a simple hash using md5 hashing algorithm of node.js*/
-
 require('dotenv').config()
 const express = require('express');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 = require('md5'); //note this
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 app.use(express.static('public'));
@@ -38,16 +35,19 @@ async function main() {
 
   app.post("/register", async (req, res) => {
     try {
-      const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+      bcrypt.hash(req.body.password, saltRounds, async (err, hash) => {  //password is hashed with salt here 'saltRounds' number of times
+        // Store hash in your password DB.
+        const newUser = new User({
+          email: req.body.username,
+          password: hash
+        });
+        const result = await newUser.save();
+        if (result) {
+          res.render('secrets');
+        } else {
+          console.log("Login Failed");
+        }
       });
-      const result = await newUser.save();  //when save() is called then the password is hashed
-      if (result) {
-        res.render('secrets');
-      } else {
-        console.log("Login Failed");
-      }
     } catch (err) {
       console.log(err);
     }
@@ -60,13 +60,14 @@ async function main() {
 
   app.post("/login", async (req, res) => {
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const password = req.body.password;
 
     try {
       const foundName = await User.findOne({ email: username }) //when find() is called then password is decrypted
       if (foundName) {
-        if (foundName.password === password) {
-          res.render('secrets');
+        const match = await bcrypt.compare(password, foundName.password);  //matches the given password with the hashed password stored in the database against an username.
+        if (match) {
+          res.render('secrets')
         } else {
           console.log('Password Does not Match...Try Again !')
         }
