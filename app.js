@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
-  secret: String
+  secret: Array
 });
 
 userSchema.plugin(passportLocalMongoose) /*only works if the schema is a mongoose schema and not a simple JS schema.
@@ -140,20 +140,30 @@ app.post("/register", function (req, res) {
 })
 
 app.get("/secrets", function (req, res) {
-  // The below line was added so we can't display the "/secrets" page
-  // after we logged out using the "back" button of the browser, which
-  // would normally display the browser cache and thus expose the 
-  // "/secrets" page we want to protect. Code taken from this post.
-  res.set(
-    'Cache-Control',
-    'no-cache, private, no-store, must-revalidate, max-stal e=0, post-check=0, pre-check=0'
-  )
-  if (req.isAuthenticated()) {
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
-})
+  User.find({ "secret": { $ne: null } })      //nowadays UserModel.find() does not accept callbacks... async-await has to
+    //be used. But since I developed my whole app without async-await so I had to come up with another way. 
+    .then(function (foundUsers) {
+      res.render("secrets", { usersWithSecrets: foundUsers });
+    })
+    .catch(function (err) {
+      console.log(err);
+    })
+});
+// below is a async-await function:
+/* 
+        app.get("/secrets", async (req, res) => {
+          try {
+            const foundUsers = await User.find({ "secret": { $ne: null } });
+        
+            if (foundUsers) {
+              res.render("secrets", { usersWithSecret: foundUsers });
+            }
+          } catch (err) {
+            console.log(err);
+            // Handle the error appropriately (e.g., send an error response)
+          }
+        });
+*/
 
 app.get("/submit", function (req, res) {
 
@@ -164,24 +174,43 @@ app.get("/submit", function (req, res) {
   }
 })
 
-app.post("/submit", async (req, res) => {
-  try {
-    const submittedSecret = req.body.secret;
-    const userID = req.user.id;
-
-    const foundUser = await User.findById(userID);
-
-    if (foundUser) {
-      foundUser.secret = submittedSecret;
-      await foundUser.save();
+app.post("/submit", function (req, res) {
+  console.log(req.user);
+  User.findById(req.user)
+    .then(foundUser => {
+      if (foundUser) {
+        foundUser.secret = req.body.secret;
+        return foundUser.save();
+      }
+      return null;
+    })
+    .then(() => {
       res.redirect("/secrets");
-    }
-  } catch (err) {
-    console.log(err);
-    // Handle the error appropriately (e.g., send an error response)
-  }
+    })
+    .catch(err => {
+      console.log(err);
+    });
 });
 
+// below is a async-await function:
+
+// app.post("/submit", async (req, res) => {
+//   try {
+//     const submittedSecret = req.body.secret;
+//     const userID = req.user.id;
+
+//     const foundUser = await User.findById(userID);
+
+//     if (foundUser) {
+//       foundUser.secret = submittedSecret;
+//       await foundUser.save();
+//       res.redirect("/secrets");
+//     }
+//   } catch (err) {
+//     console.log(err);
+//     // Handle the error appropriately (e.g., send an error response)
+//   }
+// });
 
 
 app.listen(3000, () => {
