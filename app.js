@@ -28,7 +28,8 @@ mongoose.connect('mongodb://127.0.0.1:27017/userDB', { useNewUrlParser: true });
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String  //will contain the profileId sent by google which will be used to find existing user or create new user.
+  googleId: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose) /*only works if the schema is a mongoose schema and not a simple JS schema.
@@ -84,6 +85,21 @@ app.get("/login", (req, res) => {
   res.render('login');
 })
 
+app.post("/login",
+  passport.authenticate("local"), function (req, res) { //this authenticates the user and save the credentials in cookie
+    const user = new User({
+      username: req.body.username,
+      password: req.body.password
+    });
+    req.login(user, function (err) {
+      if (err) {
+        console.log(err);
+      } else {
+        res.redirect("/secrets");
+      }
+    })
+  })
+
 // app.get("/logout", function(req, res){
 //   req.logout(); // it is not a correct way to logout... gives error: requires callback
 //   res.redirect("/");
@@ -102,22 +118,6 @@ app.get("/logout", function (req, res) {
 
 app.get("/register", (req, res) => {
   res.render('register')
-})
-
-app.get("/secrets", function (req, res) {
-  // The below line was added so we can't display the "/secrets" page
-  // after we logged out using the "back" button of the browser, which
-  // would normally display the browser cache and thus expose the 
-  // "/secrets" page we want to protect. Code taken from this post.
-  res.set(
-    'Cache-Control',
-    'no-cache, private, no-store, must-revalidate, max-stal e=0, post-check=0, pre-check=0'
-  )
-  if (req.isAuthenticated()) {
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
 })
 
 app.post("/register", function (req, res) {
@@ -139,23 +139,52 @@ app.post("/register", function (req, res) {
 
 })
 
+app.get("/secrets", function (req, res) {
+  // The below line was added so we can't display the "/secrets" page
+  // after we logged out using the "back" button of the browser, which
+  // would normally display the browser cache and thus expose the 
+  // "/secrets" page we want to protect. Code taken from this post.
+  res.set(
+    'Cache-Control',
+    'no-cache, private, no-store, must-revalidate, max-stal e=0, post-check=0, pre-check=0'
+  )
+  if (req.isAuthenticated()) {
+    res.render("secrets");
+  } else {
+    res.redirect("/login");
+  }
+})
 
-app.post("/login",
-  passport.authenticate("local"), function (req, res) { //this authenticates the user and save the credentials in cookie
-    const user = new User({
-      username: req.body.username,
-      password: req.body.password
-    });
-    req.login(user, function (err) {
-      if (err) {
-        console.log(err);
-      } else {
-        res.redirect("/secrets");
-      }
-    })
-  })
+app.get("/submit", function (req, res) {
+
+  if (req.isAuthenticated()) {
+    res.render("submit");
+  } else {
+    res.redirect("/login");
+  }
+})
+
+app.post("/submit", async (req, res) => {
+  try {
+    const submittedSecret = req.body.secret;
+    const userID = req.user.id;
+
+    const foundUser = await User.findById(userID);
+
+    if (foundUser) {
+      foundUser.secret = submittedSecret;
+      await foundUser.save();
+      res.redirect("/secrets");
+    }
+  } catch (err) {
+    console.log(err);
+    // Handle the error appropriately (e.g., send an error response)
+  }
+});
+
+
 
 app.listen(3000, () => {
-  console.log("Server is runing on port 3000...   ");
+  console.log("Server is runing on port 3000...   ")
 })
 
