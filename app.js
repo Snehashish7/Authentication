@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
-  secret: Array
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose) /*only works if the schema is a mongoose schema and not a simple JS schema.
