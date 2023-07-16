@@ -12,228 +12,228 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 const findOrCreate = require('mongoose-findorcreate');
 const PORT = process.env.PORT || 3000;
- 
+
 const app = express();
- 
+
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
- 
+
 app.use(session({
-    secret: "My secret for site.",
-    resave: false,
-    saveUninitialized: false
+  secret: "My secret for site.",
+  resave: false,
+  saveUninitialized: false
 }));
- 
- 
+
+
 passport.serializeUser(function (user, done) {
-    done(null, user.id);
+  done(null, user.id);
 });
- 
+
 passport.deserializeUser(async function (id, done) {
-    try {
-        const user = await User.findById(id);
-        done(null, user);
-    } catch (err) {
-        done(err, null);
-    }
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
 });
- 
- 
- 
+
+
+
 app.use(passport.initialize());
 app.use(passport.session());
- 
- 
+
+
 mongoose.connect("mongodb://127.0.0.1:27017", { useNewUrlParser: true, dbName: "userDB" });
- 
- 
+
+
 const userSchema = new Schema({
-    email: String,
-    password: String,
-    googleId: String,
-    secret: Array,
-    username: { type: String, unique: false, sparse: true }
+  email: String,
+  password: String,
+  googleId: String,
+  secret: Array,
+  username: { type: String, unique: false, sparse: true }
 });
- 
- 
+
+
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
- 
- 
+
+
 const User = mongoose.model("User", userSchema);
- 
- 
+
+
 passport.use(User.createStrategy());
 userSchema.plugin(findOrCreate);
- 
- 
+
+
 passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/google/secrets",
-    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
- 
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "https://snehashish-secrets-app.cyclic.app/auth/google/secrets",
+  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+
 }, async function (accessToken, refreshToken, profile, cb) {
-    try {
-        // Deleting indexes before searching or creating a user
-        await User.collection.dropIndexes();
-        console.log('Indexes have been successfully deleted');
- 
-        User.findOrCreate({ username: profile.displayName, googleId: profile.id }, function (err, user) {
-            return cb(err, user);
-        });
-    } catch (error) {
-        console.log('Error deleting indexes:', error);
-    }
+  try {
+    // Deleting indexes before searching or creating a user
+    await User.collection.dropIndexes();
+    console.log('Indexes have been successfully deleted');
+
+    User.findOrCreate({ username: profile.displayName, googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  } catch (error) {
+    console.log('Error deleting indexes:', error);
+  }
 }));
- 
- 
+
+
 passport.use(new FacebookStrategy({
-    clientID: process.env.FACEBOOK_CLIENT_ID,
-    clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/facebook/secrets",
-    profileFields: ['id', 'displayName', 'email']
+  clientID: process.env.FACEBOOK_CLIENT_ID,
+  clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+  callbackURL: "http://localhost:3000/auth/facebook/secrets",
+  profileFields: ['id', 'displayName', 'email']
 }, async function (accessToken, refreshToken, profile, cb) {
-    try {
-        // Deleting indexes before searching or creating a user
-        await User.collection.dropIndexes();
-        console.log('Indexes have been successfully deleted');
- 
-        // Your search logic or user creation
-        User.findOrCreate({ username: profile.displayName, facebookId: profile.id }, function (err, user) {
-            return cb(err, user);
-        });
-    } catch (error) {
-        console.log('Error deleting indexes:', error);
-    }
+  try {
+    // Deleting indexes before searching or creating a user
+    await User.collection.dropIndexes();
+    console.log('Indexes have been successfully deleted');
+
+    // Your search logic or user creation
+    User.findOrCreate({ username: profile.displayName, facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  } catch (error) {
+    console.log('Error deleting indexes:', error);
+  }
 }
 ));
- 
- 
+
+
 app.get('/', function (req, res) {
-    res.render("home");
- 
+  res.render("home");
+
 });
- 
- 
+
+
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
- 
- 
+
+
 app.get('/auth/google/secrets',
-    passport.authenticate('google', { failureRedirect: '/login' }),
-    function (req, res) {
-        // Successful authentication, redirect home.
-        res.redirect('/secrets');
-    });
- 
- 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function (req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
+
 app.get('/auth/facebook',
-    passport.authenticate('facebook'));
- 
- 
+  passport.authenticate('facebook'));
+
+
 app.get('/auth/facebook/secrets',
-    passport.authenticate('facebook', { failureRedirect: '/login' }),
-    function (req, res) {
-        // Successful authentication, redirect home.
-        res.redirect('/secrets');
-    });
- 
- 
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function (req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
+
 app.route("/login")
-    .get(function (req, res) {
-        res.render("login");
-    })
-    .post(async function (req, res) {
-        const user = new User({ username: req.body.username, password: req.body.password });
- 
-        req.login(user, function (err) {
-            try {
-                passport.authenticate("local")(req, res, function () {
-                    res.redirect("/secrets");
-                });
-            } catch (error) {
-                console.log(err);
-            }
+  .get(function (req, res) {
+    res.render("login");
+  })
+  .post(async function (req, res) {
+    const user = new User({ username: req.body.username, password: req.body.password });
+
+    req.login(user, function (err) {
+      try {
+        passport.authenticate("local")(req, res, function () {
+          res.redirect("/secrets");
         });
-    });
- 
- 
-app.route("/register")
-    .get(function (req, res) {
-        res.render("register");
-    })
-    .post(async function (req, res) {
-        try {
-            const user = new User({ username: req.body.username });
-            await User.register(user, req.body.password);
- 
-            passport.authenticate("local")(req, res, function () {
-                res.redirect("/secrets");
-            });
-        } catch (err) {
-            console.log(err);
-            res.send('<script>alert("Failed to register the user."); window.location.href = "/login";</script>');
-            res.render("register");
-        }
-    });
- 
- 
-app.get("/secrets", async function (req, res) {
-    try {
-        const foundUsers = await User.find({ "secret": { $ne: null } });
-        res.render("secrets", { usersWithSecrets: foundUsers });
-    } catch (error) {
+      } catch (error) {
         console.log(err);
+      }
+    });
+  });
+
+
+app.route("/register")
+  .get(function (req, res) {
+    res.render("register");
+  })
+  .post(async function (req, res) {
+    try {
+      const user = new User({ username: req.body.username });
+      await User.register(user, req.body.password);
+
+      passport.authenticate("local")(req, res, function () {
+        res.redirect("/secrets");
+      });
+    } catch (err) {
+      console.log(err);
+      res.send('<script>alert("Failed to register the user."); window.location.href = "/login";</script>');
+      res.render("register");
     }
+  });
+
+
+app.get("/secrets", async function (req, res) {
+  try {
+    const foundUsers = await User.find({ "secret": { $ne: null } });
+    res.render("secrets", { usersWithSecrets: foundUsers });
+  } catch (error) {
+    console.log(err);
+  }
 });
- 
- 
+
+
 app.route("/submit")
-    .get(function (req, res) {
-        try {
-            if (req.isAuthenticated()) {
-                res.render("submit");
-            } else {
-                res.redirect("/login");
-            }
+  .get(function (req, res) {
+    try {
+      if (req.isAuthenticated()) {
+        res.render("submit");
+      } else {
+        res.redirect("/login");
+      }
+    }
+    catch (err) {
+      res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
+      console.log(err);
+    }
+  })
+  .post(async function (req, res) {
+    try {
+      if (req.isAuthenticated()) {
+        const submittedSecret = req.body.secret;
+        console.log(req.user.id);
+        const foundUser = await User.findById(req.user.id);
+        if (foundUser) {
+          foundUser.secret = submittedSecret;
+          await foundUser.save();
+          res.redirect("/secrets");
+        } else {
+          res.send('<script>alert("Who are you? Do we know each other? Please log in."); window.location.href = "/login";</script>');
+          console.log(req.user.id);
         }
-        catch (err) {
-            res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
-            console.log(err);
-        }
-    })
-    .post(async function (req, res) {
-        try {
-            if (req.isAuthenticated()) {
-                const submittedSecret = req.body.secret;
-                console.log(req.user.id);
-                const foundUser = await User.findById(req.user.id);
-                if (foundUser) {
-                    foundUser.secret = submittedSecret;
-                    await foundUser.save();
-                    res.redirect("/secrets");
-                } else {
-                    res.send('<script>alert("Who are you? Do we know each other? Please log in."); window.location.href = "/login";</script>');
-                    console.log(req.user.id);
-                }
-            }
-        } catch (err) {
-            res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
-            console.log(err);
-        }
-    });
- 
- 
+      }
+    } catch (err) {
+      res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
+      console.log(err);
+    }
+  });
+
+
 app.get("/logout", function (req, res) {
-    req.logout(function () {
-        res.redirect("/");
-    });
+  req.logout(function () {
+    res.redirect("/");
+  });
 });
- 
- 
- 
+
+
+
 app.listen(PORT, function () {
-    console.log(`Server on port ${PORT}...`);
- 
+  console.log(`Server on port ${PORT}...`);
+
 });
