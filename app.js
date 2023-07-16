@@ -30,8 +30,8 @@ const userSchema = new mongoose.Schema({
   username:String,
   email: String,
   password: String,
-  googleId: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
-  facebookId: String,
+  googleID: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
+  facebookID: String,
   secret: Array
 });
 
@@ -61,7 +61,7 @@ passport.use(new GoogleStrategy({ //place below serialize and deserialize. We ca
 },
   function (accessToken, refreshToken, profile, cb) { //google sends us back accesstoken(user data), profile(email,google ID and more)
     // console.log(profile);
-    User.findOrCreate({ googleId: profile.id, username: profile.id  }, function (err, user) {  //we have to save the googleId in the database so that that user 
+    User.findOrCreate({ googleID: profile.id, username: profile.id  }, function (err, user) {  //we have to save the googleId in the database so that that user 
       //can be automatically identified when he/she tries to login again
       return cb(err, user);
     })
@@ -74,7 +74,7 @@ passport.use(new FacebookStrategy({
   callbackURL: "http://localhost:3000/auth/facebook/secrets"
 },
 function(accessToken, refreshToken, profile, cb) {
-  User.findOrCreate({ facebookId: profile.id, username: profile.id }, function (err, user) {
+  User.findOrCreate({ facebookID: profile.id, username: profile.id }, function (err, user) {
     return cb(err, user);
   });
 }
