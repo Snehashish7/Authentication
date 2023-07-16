@@ -55,8 +55,8 @@ passport.deserializeUser(function (user, done) {
 
 passport.use(new GoogleStrategy({ //place below serialize and deserialize. We cant
   //place above session since then it cannot save the user session.
-  clientID: process.env.GCLIENT_ID,
-  clientSecret: process.env.GCLIENT_SECRET,
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: "http://localhost:3000/auth/google/secrets",
 },
   function (accessToken, refreshToken, profile, cb) { //google sends us back accesstoken(user data), profile(email,google ID and more)
@@ -69,8 +69,8 @@ passport.use(new GoogleStrategy({ //place below serialize and deserialize. We ca
 ))
 
 passport.use(new FacebookStrategy({
-  clientID: process.env.FCLIENT_ID,
-  clientSecret: process.env.FCLIENT_SECRET,
+  clientID: process.env.FACEBOOK_CLIENT_ID,
+  clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
   callbackURL: "http://localhost:3000/auth/facebook/secrets"
 },
 function(accessToken, refreshToken, profile, cb) {
