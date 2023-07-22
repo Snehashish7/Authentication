@@ -45,7 +45,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-mongoose.connect("mongodb://127.0.0.1:27017", { useNewUrlParser: true, dbName: "userDB" });
+mongoose.connect("mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/?retryWrites=true&w=majority", { useNewUrlParser: true, dbName: "userDB" });
 
 
 const userSchema = new Schema({
@@ -76,9 +76,6 @@ passport.use(new GoogleStrategy({
 
 }, async function (accessToken, refreshToken, profile, cb) {
   try {
-    // Deleting indexes before searching or creating a user
-    await User.collection.dropIndexes();
-    console.log('Indexes have been successfully deleted');
 
     User.findOrCreate({ username: profile.displayName, googleId: profile.id }, function (err, user) {
       return cb(err, user);
@@ -96,9 +93,6 @@ passport.use(new FacebookStrategy({
   profileFields: ['id', 'displayName', 'email']
 }, async function (accessToken, refreshToken, profile, cb) {
   try {
-    // Deleting indexes before searching or creating a user
-    await User.collection.dropIndexes();
-    console.log('Indexes have been successfully deleted');
 
     // Your search logic or user creation
     User.findOrCreate({ username: profile.displayName, facebookId: profile.id }, function (err, user) {
@@ -184,7 +178,7 @@ app.get("/secrets", async function (req, res) {
     const foundUsers = await User.find({ "secret": { $ne: null } });
     res.render("secrets", { usersWithSecrets: foundUsers });
   } catch (error) {
-    console.log(err);
+    console.log(error);
   }
 });
 
@@ -210,7 +204,7 @@ app.route("/submit")
         console.log(req.user.id);
         const foundUser = await User.findById(req.user.id);
         if (foundUser) {
-          foundUser.secret = submittedSecret;
+          foundUser.secret.push(submittedSecret);
           await foundUser.save();
           res.redirect("/secrets");
         } else {
