@@ -45,7 +45,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-mongoose.connect("mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/?retryWrites=true&w=majority", { useNewUrlParser: true, dbName: "userDB" });
+mongoose.connect(process.env.MONGO_URI , { useNewUrlParser: true });
 
 
 const userSchema = new Schema({
@@ -89,7 +89,7 @@ passport.use(new GoogleStrategy({
 passport.use(new FacebookStrategy({
   clientID: process.env.FACEBOOK_CLIENT_ID,
   clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-  callbackURL: "http://localhost:3000/auth/facebook/secrets",
+  callbackURL: "https://snehashish-secrets-app.cyclic.app/auth/facebook/secrets",
   profileFields: ['id', 'displayName', 'email']
 }, async function (accessToken, refreshToken, profile, cb) {
   try {
