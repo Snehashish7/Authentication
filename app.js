@@ -192,7 +192,6 @@ app.route("/submit")
       }
     }
     catch (err) {
-      res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
       console.log(err);
     }
   })
@@ -207,12 +206,10 @@ app.route("/submit")
           await foundUser.save();
           res.redirect("/secrets");
         } else {
-          res.send('<script>alert("Who are you? Do we know each other? Please log in."); window.location.href = "/login";</script>');
           console.log(req.user.id);
         }
       }
     } catch (err) {
-      res.send('<script>alert("Failed to login."); window.location.href = "/login";</script>');
       console.log(err);
     }
   });
