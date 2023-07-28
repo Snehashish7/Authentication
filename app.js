@@ -167,7 +167,6 @@ app.route("/register")
       });
     } catch (err) {
       console.log(err);
-      res.send('<script>alert("Failed to register the user."); window.location.href = "/login";</script>');
       res.render("register");
     }
   });
@@ -175,7 +174,7 @@ app.route("/register")
 
 app.get("/secrets", async function (req, res) {
   try {
-    const foundUsers = await User.find({ "secret": { $ne: null } });
+    const foundUsers = await User.find({ "secret": { $ne: null } }); 
     res.render("secrets", { usersWithSecrets: foundUsers });
   } catch (error) {
     console.log(error);
