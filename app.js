@@ -45,7 +45,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-mongoose.connect('mongodb://snehashishghosh21:test@127.0.0.1:27017/test' , { useNewUrlParser: true });
+mongoose.connect('mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/userDB' , { useNewUrlParser: true });
 
 
 const userSchema = new Schema({
