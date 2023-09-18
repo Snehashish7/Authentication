@@ -183,11 +183,7 @@ app.get("/secrets", async function (req, res) {
 app.route("/submit")
   .get(function (req, res) {
     try {
-      if (req.isAuthenticated()) {
         res.render("submit");
-      } else {
-        res.redirect("/login");
-      }
     }
     catch (err) {
       console.log(err);
