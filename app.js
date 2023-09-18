@@ -19,20 +19,10 @@ app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
-
 app.use(session({
   secret: "My secret for site.",
   resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "development" ? false : true,
-    httpOnly: process.env.NODE_ENV === "development" ? false : true,
-    sameSite: process.env.NODE_ENV === "development" ? "" : "none", // Set if using CORS
-    path: "/",
-  }, // 5 minutes
+  saveUninitialized: false
 }));
 
 
@@ -131,7 +121,7 @@ app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }))
 
 
 app.get('/auth/google/secrets',
-  passport.authenticate('google', { successRedirect: "/secrets",failureRedirect: '/login' }))
+  passport.authenticate('google', { successRedirect: "/secrets", failureRedirect: '/login' }))
 
 
 app.get('/auth/facebook',
@@ -139,7 +129,7 @@ app.get('/auth/facebook',
 
 
 app.get('/auth/facebook/secrets',
-  passport.authenticate('facebook', { successRedirect: "/secrets",failureRedirect: '/login' }),);
+  passport.authenticate('facebook', { successRedirect: "/secrets", failureRedirect: '/login' }),);
 
 
 app.route("/login")
