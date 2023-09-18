@@ -33,9 +33,15 @@ passport.serializeUser(function (user, done) {
 passport.deserializeUser(async function (id, done) {
   try {
     const user = await User.findById(id);
-    done(null, user);
+    if (user) {
+      console.log("if is running", user);
+      return done(null, user);
+    } else {
+      console.log("else is running");
+      return done(null, false);
+    }
   } catch (err) {
-    done(err, null);
+    return done(err, null);
   }
 });
 
@@ -45,7 +51,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-mongoose.connect('mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/userDB' , { useNewUrlParser: true });
+mongoose.connect('mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/userDB', { useNewUrlParser: true });
 
 
 const userSchema = new Schema({
@@ -174,7 +180,7 @@ app.route("/register")
 
 app.get("/secrets", async function (req, res) {
   try {
-    const foundUsers = await User.find({ "secret": { $ne: null } }); 
+    const foundUsers = await User.find({ "secret": { $ne: null } });
     res.render("secrets", { usersWithSecrets: foundUsers });
   } catch (error) {
     console.log(error);
