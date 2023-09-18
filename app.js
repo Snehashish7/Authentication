@@ -1,235 +1,246 @@
-require('dotenv').config();
-const bcrypt = require('bcrypt');
-const express = require("express");
-const ejs = require("ejs");
-const bodyParser = require("body-parser");
-const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
-const session = require('express-session');
-const passport = require('passport');
-const passportLocalMongoose = require('passport-local-mongoose');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+require('dotenv').config()
+const express = require('express');
+const ejs = require('ejs');
+const mongoose = require('mongoose');
+const session = require('express-session')
+const passport = require('passport')
+const passportLocalMongoose = require('passport-local-mongoose')
+const GoogleStrategy = require('passport-google-oauth20').Strategy; //we will use this as a passport strategy.
 const FacebookStrategy = require('passport-facebook').Strategy;
 const findOrCreate = require('mongoose-findorcreate');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
+app.use(express.static('public'));
+app.set('view engine', 'ejs');
+app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static("public"));
-app.set("view engine", "ejs");
-app.use(bodyParser.urlencoded({ extended: true }));
-
-app.use(session({
-  secret: "My secret for site.",
+app.use(session({ //express-session
+  secret: 'A secret',
   resave: false,
-  saveUninitialized: false
-}));
+  saveUninitialized: false,
+}))
+
+app.use(passport.initialize())  //initialize passport for further use.
+app.use(passport.session())
 
 
-passport.serializeUser(function (user, done) {
-  done(null, user.id);
-});
+mongoose.connect("mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/?retryWrites=true&w=majority", { useNewUrlParser: true, dbName: "userDB" });
 
-passport.deserializeUser(async function (id, done) {
-  try {
-    const user = await User.findById(id);
-    if (user) {
-      console.log("if is running", user);
-      return done(null, user);
-    } else {
-      console.log("else is running");
-      return done(null, false);
-    }
-  } catch (err) {
-    return done(err, null);
-  }
-});
-
-
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-
-mongoose.connect('mongodb+srv://snehashishghosh21:test@cluster0.3hj1ahr.mongodb.net/userDB', { useNewUrlParser: true });
-
-
-const userSchema = new Schema({
+// use `await mongoose.connect('mongodb://user:password@127.0.0.1:27017/test');` if your database has auth enabled
+const userSchema = new mongoose.Schema({
+  username:String,
   email: String,
   password: String,
-  googleId: String,
+  googleId: String,  //will contain the profileId sent by google which will be used to find existing user or create new user.
+  facebookId: String,
   secret: Array,
-  username: { type: String, unique: false, sparse: true }
+  
 });
 
+userSchema.plugin(passportLocalMongoose, {usernameUnique: false}) /*only works if the schema is a mongoose schema and not a simple JS schema.
+  this is what we will use to hash and salt password and store user data in database.
+  */
+  userSchema.plugin(findOrCreate)
 
-userSchema.plugin(passportLocalMongoose);
-userSchema.plugin(findOrCreate);
-
-
-const User = mongoose.model("User", userSchema);
-
-
-passport.use(User.createStrategy());
-userSchema.plugin(findOrCreate);
-
-
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "https://snehashish-secrets-app.cyclic.app/auth/google/secrets",
-  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
-
-}, async function (accessToken, refreshToken, profile, cb) {
-  try {
-
-    User.findOrCreate({ username: profile.displayName, googleId: profile.id }, function (err, user) {
+  const User = mongoose.model("User", userSchema)
+  
+  passport.use(User.createStrategy())
+  
+  
+  passport.serializeUser(function (user, done) {
+    done(null, user);
+  });
+  
+  passport.deserializeUser(function (user, done) {
+    done(null, user);
+  });
+  
+  passport.use(new GoogleStrategy({ //place below serialize and deserialize. We cant
+    //place above session since then it cannot save the user session.
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "https://snehashish-secrets-app.cyclic.app/auth/google/secrets",
+  },
+    function (accessToken, refreshToken, profile, cb) { //google sends us back accesstoken(user data), profile(email,google ID and more)
+      // console.log(profile);
+      User.findOrCreate({ googleId: profile.id, username: profile.id  }, function (err, user) {  //we have to save the googleId in the database so that that user 
+        //can be automatically identified when he/she tries to login again
+        return cb(err, user);
+      })
+    }
+  ))
+  
+  passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_CLIENT_ID,
+    clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id, username: profile.id }, function (err, user) {
       return cb(err, user);
     });
-  } catch (error) {
-    console.log('Error deleting indexes:', error);
   }
-}));
-
-
-passport.use(new FacebookStrategy({
-  clientID: process.env.FACEBOOK_CLIENT_ID,
-  clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-  callbackURL: "https://snehashish-secrets-app.cyclic.app/auth/facebook/secrets",
-  profileFields: ['id', 'displayName', 'email']
-}, async function (accessToken, refreshToken, profile, cb) {
-  try {
-
-    // Your search logic or user creation
-    User.findOrCreate({ username: profile.displayName, facebookId: profile.id }, function (err, user) {
-      return cb(err, user);
-    });
-  } catch (error) {
-    console.log('Error deleting indexes:', error);
-  }
-}
-));
-
-
-app.get('/', function (req, res) {
-  res.render("home");
-
-});
-
-
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
-
-
-app.get('/auth/google/secrets',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  function (req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/secrets');
-  });
-
-
-app.get('/auth/facebook',
-  passport.authenticate('facebook'));
-
-
-app.get('/auth/facebook/secrets',
-  passport.authenticate('facebook', { failureRedirect: '/login' }),
-  function (req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/secrets');
-  });
-
-
-app.route("/login")
-  .get(function (req, res) {
-    res.render("login");
+  ));
+  
+  app.get("/", (req, res) => {
+    res.render('home')
   })
-  .post(async function (req, res) {
-    const user = new User({ username: req.body.username, password: req.body.password });
-
-    req.login(user, function (err) {
-      try {
-        passport.authenticate("local")(req, res, function () {
-          res.redirect("/secrets");
-        });
-      } catch (error) {
-        console.log(err);
-      }
+  
+  //the following code does:
+  /* authenticates user using googleStrategy when user hits the /auth/google route in login/register.
+   */
+  app.get("/auth/google", passport.authenticate("google", { scope: ["profile"] }));
+  
+  app.get("/auth/google/secrets",
+    passport.authenticate("google", { failureRedirect: "/login" }),
+    function (req, res) {
+      res.redirect("/secrets");
     });
-  });
-
-
-app.route("/register")
-  .get(function (req, res) {
-    res.render("register");
+  
+  app.get('/auth/facebook', passport.authenticate('facebook'));
+  
+  app.get('/auth/facebook/secrets',
+    passport.authenticate('facebook', { failureRedirect: '/login' }),
+    function(req, res) {
+      // Successful authentication, redirect home.
+      res.redirect('/secrets');
+    });
+  
+  app.get("/login", (req, res) => {
+    res.render('login');
   })
-  .post(async function (req, res) {
-    try {
-      const user = new User({ username: req.body.username });
-      await User.register(user, req.body.password);
-
-      passport.authenticate("local")(req, res, function () {
-        res.redirect("/secrets");
+  
+  app.post("/login",
+    passport.authenticate("local"), function (req, res) { //this authenticates the user and save the credentials in cookie
+      const user = new User({
+        username: req.body.username,
+        password: req.body.password
       });
-    } catch (err) {
-      console.log(err);
-      res.render("register");
-    }
-  });
-
-
-app.get("/secrets", async function (req, res) {
-  try {
-    const foundUsers = await User.find({ "secret": { $ne: null } });
-    res.render("secrets", { usersWithSecrets: foundUsers });
-  } catch (error) {
-    console.log(error);
-  }
-});
-
-
-app.route("/submit")
-  .get(function (req, res) {
-    try {
-      if (req.isAuthenticated()) {
-        res.render("submit");
-      } else {
-        res.redirect("/login");
+      req.login(user, function (err) {
+        if (err) {
+          console.log(err);
+        } else {
+          res.redirect("/secrets");
+        }
+      })
+    })
+  
+  // app.get("/logout", function(req, res){
+  //   req.logout(); // it is not a correct way to logout... gives error: requires callback
+  //   res.redirect("/");
+  
+  // })
+  
+  app.get("/logout", function (req, res) {
+  
+    req.logout(function (err) { //logs out the user and deletes the cookie associated with the user.
+      if (!err) {
+        res.redirect("/");
       }
-    }
-    catch (err) {
-      console.log(err);
+    })
+  })
+  
+  
+  app.get("/register", (req, res) => {
+    res.render('register')
+  })
+  
+  app.post("/register", function (req, res) {
+    //'User.register()'  middleware is comming from passport-local-mongoose. 
+    // It helps us avoid the newUser creation, saving the user and interacting with mongoose directly.
+    // It also hashes and salts the password automatically.
+    // Instead the middleware handles all these for us.
+    User.register({ username: req.body.username }, req.body.password, function (err, user) {
+      if (err) {
+        console.log(err);
+        res.redirect("/register");
+      }
+      else {
+        passport.authenticate("local")(req, res, function () {  //this authenticates the user and save the credentials in cookie
+          res.redirect("/secrets");
+        })
+      }
+    })
+  
+  })
+  
+  app.get("/secrets", function (req, res) {
+    User.find({ "secret": { $ne: null } })      //nowadays UserModel.find() does not accept callbacks... async-await has to
+      //be used. But since I developed my whole app without async-await so I had to come up with another way. 
+      .then(function (foundUsers) {
+        res.render("secrets", { usersWithSecrets: foundUsers });
+      })
+      .catch(function (err) {
+        console.log(err);
+      })
+  });
+  // below is a async-await function:
+  /* 
+          app.get("/secrets", async (req, res) => {
+            try {
+              const foundUsers = await User.find({ "secret": { $ne: null } });
+          
+              if (foundUsers) {
+                res.render("secrets", { usersWithSecret: foundUsers });
+              }
+            } catch (err) {
+              console.log(err);
+              // Handle the error appropriately (e.g., send an error response)
+            }
+          });
+  */
+  
+  app.get("/submit", function (req, res) {
+  
+    if (req.isAuthenticated()) {
+      res.render("submit");
+    } else {
+      res.redirect("/login");
     }
   })
-  .post(async function (req, res) {
-    try {
-      if (req.isAuthenticated()) {
-        const submittedSecret = req.body.secret;
-        console.log(req.user.id);
-        const foundUser = await User.findById(req.user.id);
+  
+  app.post("/submit", function (req, res) {
+    console.log(req.user);
+    User.findById(req.user)
+      .then(foundUser => {
         if (foundUser) {
-          foundUser.secret.push(submittedSecret);
-          await foundUser.save();
-          res.redirect("/secrets");
-        } else {
-          console.log(req.user.id);
+          foundUser.secret.push(req.body.secret); //now the secrets is an Array
+          return foundUser.save();
         }
-      }
-    } catch (err) {
-      console.log(err);
-    }
+        return null;
+      })
+      .then(() => {
+        res.redirect("/secrets");
+      })
+      .catch(err => {
+        console.log(err);
+      });
   });
-
-
-app.get("/logout", function (req, res) {
-  req.logout(function () {
-    res.redirect("/");
+  
+  // below is a async-await function:
+  
+  // app.post("/submit", async (req, res) => {
+  //   try {
+  //     const submittedSecret = req.body.secret;
+  //     const userID = req.user.id;
+  
+  //     const foundUser = await User.findById(userID);
+  
+  //     if (foundUser) {
+  //       foundUser.secret = submittedSecret;
+  //       await foundUser.save();
+  //       res.redirect("/secrets");
+  //     }
+  //   } catch (err) {
+  //     console.log(err);
+  //     // Handle the error appropriately (e.g., send an error response)
+  //   }
+  // });
+  
+  
+  app.listen(PORT, function () {
+    console.log(`Server started on port ${PORT}...`);
+  
   });
-});
-
-
-
-app.listen(PORT, function () {
-  console.log(`Server on port ${PORT}...`);
-
-});
