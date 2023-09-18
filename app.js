@@ -181,9 +181,10 @@ app.get("/secrets", async function (req, res) {
 
 
 app.route("/submit")
-  .get(function (req, res) {
+  .get(async function (req, res) {
     try {
-        res.render("submit");
+      const foundUser = await User.find({ "secret": { $ne: null } });
+      res.render("submit",{secrets:foundUser.secret});
     }
     catch (err) {
       console.log(err);
@@ -206,7 +207,21 @@ app.route("/submit")
     } catch (err) {
       console.log(err);
     }
-  });
+  })
+app.post("/submit/delete", function (req, res) {
+  if (req.isAuthenticated()) {
+    User.findById(req.user.id, function (err, foundUser) {
+      foundUser.secret.splice(foundUser.secret.indexOf(req.body.secret), 1);
+      foundUser.save(function (err) {
+        if (!err) {
+          res.redirect("/submit");
+        }
+      });
+    });
+  } else {
+    res.redirect("/login");
+  }
+});
 
 
 app.get("/logout", function (req, res) {
